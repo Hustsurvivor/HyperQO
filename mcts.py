@@ -325,16 +325,24 @@ class MCTSHinterSearch():
             return
         for child in node.children.values():
             self.dfs(child,depth)
-    def  savemodel(self,):
+    def saveModel(self,):
         torch.save(predictionNet.cpu().state_dict(), 'model/'+self.modelhead+".pth")
         predictionNet.cuda()
-    def loadmodel(self,):
+        
+    def loadModel(self,):
         predictionNet.load_state_dict(torch.load('model/'+self.modelhead+".pth"))
         predictionNet.cuda()
+    
+    def eval(self,):
+        predictionNet.eval()
+    
+    def train(self,):
+        predictionNet.train()
+    
     def findCanHints(self, totalNumberOfTables, numberOfTables, queryEncode,all_joins,joins_with_predicate,nodes,depth=2):
         self.total_cnt +=1
         if self.total_cnt%200==0:
-            self.savemodel()
+            self.saveModel()
         initialState = planState(totalNumberOfTables, numberOfTables, queryEncode,
                                 all_joins,joins_with_predicate,nodes)
         

@@ -72,6 +72,20 @@ class TreeNet:
         self.memory = ReplayMemory(config.mem_size)
         self.loss_function = MSEVAR(config.var_weight)
         # self.loss_function = F.smooth_l1_loss
+    def eval(self):
+        self.value_network.eval()
+    
+    def train(self):
+        self.value_network.train()
+    
+    def saveModel(self):
+        torch.save(self.value_network.cpu().state_dict(), 'model/'+ 'value_network' +".pth")
+        self.value_network.cuda()
+
+    def loadModel(self,):
+        self.value_network.load_state_dict(torch.load('model/'+'value_network'+".pth"))
+        self.value_network.cuda()
+    
     def plan_to_value(self,tree_feature,sql_feature):
         def recursive(tree_feature):
             if isinstance(tree_feature[1],tuple):

@@ -71,6 +71,10 @@ class Hinter:
         chosen_leading_pair = sorted(zip(plan_times[:config.max_hint_num],leading_list,leadings_utility_list),key = lambda x:x[0][0]+self.knn.kNeightboursSample(x[0]))[0]
         return chosen_leading_pair
     
+    def saveModel(self,):
+        self.model.saveModel()
+        self.mcts_searcher.saveModel()
+    
     def hinterRun(self,sql):
         self.hinter_times += 1
         plan_json_PG = pgrunner.getCostPlanJson(sql)
@@ -165,6 +169,108 @@ class Hinter:
             if loss>3:
                 loss=  self.model.optimize()[0]
                 loss1 = self.mcts_searcher.optimize()
+            
+            self.saveModel()
+
+        assert len(set([len(self.hinter_runtime_list),len(self.pg_runningtime_list),len(self.mcts_time_list),len(self.hinter_planningtime_list),len(self.MHPE_time_list),len(self.hinter_runtime_list),len(self.chosen_plan),len(self.hinter_time_list)]))==1
+        return self.pg_planningtime_list[-1],self.pg_runningtime_list[-1],self.mcts_time_list[-1],self.hinter_planningtime_list[-1],self.MHPE_time_list[-1],self.hinter_runtime_list[-1],self.chosen_plan[-1],self.hinter_time_list[-1]
+
+    def hinterTest(self,sql):
+        self.model.eval()
+        self.mcts_seacher.eval()
+    
+        plan_json_PG = pgrunner.getCostPlanJson(sql)
+        self.samples_plan_with_time = []
+        mask = (torch.rand(1,config.head_num,device = config.device)<0.9).long()
+        
+        if config.cost_test_for_debug:
+            self.pg_runningtime_list.append(pgrunner.getCost(sql)[0])
+            self.pg_planningtime_list.append(pgrunner.getCostPlanJson(sql)['Planning Time'])
+        else:
+            self.pg_runningtime_list.append(pgrunner.getAnalysePlanJson(sql)['Plan']['Actual Total Time'])
+            self.pg_planningtime_list.append(pgrunner.getAnalysePlanJson(sql)['Planning Time'])
+        
+        sql_vec,alias = self.sql2vec.to_vec(sql)
+        plan_jsons = [plan_json_PG]
+        plan_times = self.predictWithUncertaintyBatch(plan_jsons=plan_jsons,sql_vec = sql_vec)
+        
+        algorithm_idx = 0
+        
+        chosen_leading_pair = self.findBestHint(plan_json_PG=plan_json_PG,alias=alias,sql_vec = sql_vec,sql=sql)
+        knn_plan = abs(self.knn.kNeightboursSample(plan_times[0]))
+        if chosen_leading_pair[0][0]<plan_times[algorithm_idx][0] and abs(knn_plan)<config.threshold and self.value_extractor.decode(plan_times[0][0])>100:
+            from math import e
+            max_time_out = min(int(self.value_extractor.decode(chosen_leading_pair[0][0])*3),config.max_time_out)
+            if config.cost_test_for_debug:
+                leading_time_flag = pgrunner.getCost(sql = chosen_leading_pair[1]+sql)
+                self.hinter_runtime_list.append(leading_time_flag[0])
+                ##To do: parallel planning
+                self.hinter_planningtime_list.append(pgrunner.getCostPlanJson(sql = chosen_leading_pair[1]+sql)['Planning Time'])
+            else:
+                plan_json  = pgrunner.getAnalysePlanJson(sql = chosen_leading_pair[1]+sql)
+                leading_time_flag = (plan_json['Plan']['Actual Total Time'],plan_json['timeout'])
+                self.hinter_runtime_list.append(leading_time_flag[0])
+                ##To do: parallel planning
+                self.hinter_planningtime_list.append(plan_json['Planning Time'])
+            
+            self.knn.insertAValue((chosen_leading_pair[0],self.value_extractor.encode(leading_time_flag[0])-chosen_leading_pair[0][0]))
+            if config.cost_test_for_debug:
+                self.samples_plan_with_time.append([pgrunner.getCostPlanJson(sql = chosen_leading_pair[1]+sql,timeout=max_time_out),leading_time_flag[0],mask])
+            else:
+                self.samples_plan_with_time.append([pgrunner.getCostPlanJson(sql = chosen_leading_pair[1]+sql,timeout=max_time_out),leading_time_flag[0],mask])
+            if leading_time_flag[1]:
+                if config.cost_test_for_debug:
+                    pg_time_flag = pgrunner.getCost(sql=sql)
+                else:
+                    pg_time_flag = pgrunner.getLatency(sql=sql,timeout = 300*1000)
+                self.knn.insertAValue((plan_times[0],self.value_extractor.encode(pg_time_flag[0])-plan_times[0][0]))
+                if self.samples_plan_with_time[0][1]>pg_time_flag[0]*1.8:
+                    self.samples_plan_with_time[0][1] = pg_time_flag[0]*1.8
+                    self.samples_plan_with_time.append([plan_json_PG,pg_time_flag[0],mask])
+                else:
+                    self.samples_plan_with_time[0] = [plan_json_PG,pg_time_flag[0],mask]
+                
+                self.hinter_time_list.append([max_time_out,pgrunner.getLatency(sql=sql,timeout = 300*1000)[0]])
+                self.chosen_plan.append([chosen_leading_pair[1],'PG'])
+            else:
+                self.hinter_time_list.append([leading_time_flag[0]])
+                self.chosen_plan.append([chosen_leading_pair[1]])
+        else:
+            if config.cost_test_for_debug:
+                pg_time_flag = pgrunner.getCost(sql=sql)
+                self.hinter_runtime_list.append(pg_time_flag[0])
+                ##To do: parallel planning
+                self.hinter_planningtime_list.append(pgrunner.getCostPlanJson(sql)['Planning Time'])
+            else:
+                pg_time_flag = pgrunner.getLatency(sql=sql,timeout = 300*1000)
+                self.hinter_runtime_list.append(pg_time_flag[0])
+                ##To do: parallel planning
+
+                self.hinter_planningtime_list.append(pgrunner.getAnalysePlanJson(sql = sql)['Planning Time'])
+            self.knn.insertAValue((plan_times[0],self.value_extractor.encode(pg_time_flag[0])-plan_times[0][0]))
+            self.samples_plan_with_time.append([plan_json_PG,pg_time_flag[0],mask])
+            self.hinter_time_list.append([pg_time_flag[0]])
+            self.chosen_plan.append(['PG'])
+
+        ## To do: parallel the training process
+        ##
+        # for sample in self.samples_plan_with_time:
+        #     target_value = self.value_extractor.encode(sample[1])
+        #     self.model.train(plan_json = sample[0],sql_vec = sql_vec,target_value=target_value,mask = mask,is_train = True)
+        #     self.mcts_searcher.train(tree_feature = self.model.tree_builder.plan_to_feature_tree(sample[0]),sql_vec = sql_vec,target_value = sample[1],alias_set=alias)
+        
+        # if self.hinter_times<1000 or self.hinter_times%10==0:
+        #     loss=  self.model.optimize()[0]
+        #     loss1 = self.mcts_searcher.optimize()
+        #     if self.hinter_times<1000:
+        #         loss=  self.model.optimize()[0]
+        #         loss1 = self.mcts_searcher.optimize()
+        #     if loss>3:
+        #         loss=  self.model.optimize()[0]
+        #         loss1 = self.mcts_searcher.optimize()
+        #     if loss>3:
+        #         loss=  self.model.optimize()[0]
+        #         loss1 = self.mcts_searcher.optimize()
         
 
         assert len(set([len(self.hinter_runtime_list),len(self.pg_runningtime_list),len(self.mcts_time_list),len(self.hinter_planningtime_list),len(self.MHPE_time_list),len(self.hinter_runtime_list),len(self.chosen_plan),len(self.hinter_time_list)]))==1
