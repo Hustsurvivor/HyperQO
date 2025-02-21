@@ -128,9 +128,11 @@ class Fold(object):
                 if self._cuda:
                     var = Variable(
                         torch.cuda.LongTensor(arg), volatile=self.volatile)
+                    # var = torch.tensor(arg, dtype=torch.long, device='cuda', requires_grad=not self.volatile)
                 else:
                     var = Variable(
                         torch.LongTensor(arg), volatile=self.volatile)
+                    # var = torch.tensor(arg, dtype=torch.long, requires_grad=not self.volatile)
                 res.append(var)
             else:
                 for arg_item in arg:

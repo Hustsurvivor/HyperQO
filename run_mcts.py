@@ -6,6 +6,7 @@ from sql2fea import TreeBuilder,value_extractor
 from NET import TreeNet
 from sql2fea import Sql2Vec
 from TreeLSTM import SPINN
+import torch.nn as nn
 
 sys.stdout = open(config.log_file, "w")
 random.seed(113)
@@ -18,9 +19,9 @@ value_network = SPINN(head_num=config.head_num, input_size=7+2, hidden_size=conf
 for name, param in value_network.named_parameters():
     from torch.nn import init
     if len(param.shape)==2:
-        init.xavier_normal(param)
+        nn.init.xavier_normal_(param)
     else:
-        init.uniform(param)
+        nn.init.uniform_(param)
 
 
 net = TreeNet(tree_builder= tree_builder,value_network = value_network)

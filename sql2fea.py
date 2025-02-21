@@ -42,7 +42,7 @@ class Sql2Vec:
         self.join_list = set()
         self.aliasnames_root_set = set([x.getAliasName() for x in self.from_table_list])
 
-        self.alias_selectivity = np.asarray([0]*len(self.id2aliasname),dtype = np.float)
+        self.alias_selectivity = np.asarray([0]*len(self.id2aliasname),dtype = np.float64)
         self.aliasname2fromtable = {}
         for table in self.from_table_list:
             self.aliasname2fromtable[table.getAliasName()] = table
@@ -51,8 +51,8 @@ class Sql2Vec:
         self.aliasnames = set(self.aliasname2fromtable.keys())
         self.comparison_list =[Comparison(x) for x in parse_result["whereClause"]["BoolExpr"]["args"]]
         self.total = 0
-        self.join_matrix = np.zeros((len(self.id2aliasname),len(self.id2aliasname)),dtype = np.float)
-        self.count_selectivity = np.asarray([0]*config.max_column,dtype = np.float)
+        self.join_matrix = np.zeros((len(self.id2aliasname),len(self.id2aliasname)),dtype = np.float64)
+        self.count_selectivity = np.asarray([0]*config.max_column,dtype = np.float64)
         self.has_predicate = set()
         self.join_list_with_predicate = set()
         for comparison in self.comparison_list:

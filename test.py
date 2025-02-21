@@ -41,7 +41,7 @@ s_hinter = 0
 for epoch in range(1):
     for qid, query in qid2query.items():
         print('----',qid,'-----')
-        pg_plan_time,pg_latency,mcts_time,hinter_plan_time,MPHE_time,hinter_latency,actual_plans,actual_time = hinter.hinterTest(query)
+        pg_plan_time,pg_latency,mcts_time,hinter_plan_time,MPHE_time,hinter_latency,actual_plans,actual_time,chosen_plan_json = hinter.hinterTest(query)
         pg_latency/=1000
         hinter_latency/=1000
         pg_plan_time/=1000
@@ -60,7 +60,12 @@ for epoch in range(1):
         import json
         sys.stdout.flush()
         
+        # todo: plan2hintcore
+        # hintcore = plan2hintcore(chosen_plan_json['Plan'])
+        # with open(config.result_file, 'a')as f:
+        #     f.write('#####'.join([qid, actual_plans[0], str(actual_time[0]), hintcore]).strip() + '\n')
+        
         with open(config.result_file, 'a')as f:
-            f.write('#####'.join([qid, actual_plans, actual_time]).strip() + '\n')
+            f.write('#####'.join([qid, actual_plans[0], str(actual_time[0]), json.dumps(chosen_plan_json)]).strip() + '\n')
             
         

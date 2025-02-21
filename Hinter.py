@@ -177,8 +177,8 @@ class Hinter:
 
     def hinterTest(self,sql):
         self.model.eval()
-        self.mcts_seacher.eval()
-    
+        self.mcts_searcher.eval()
+        
         plan_json_PG = pgrunner.getCostPlanJson(sql)
         self.samples_plan_with_time = []
         mask = (torch.rand(1,config.head_num,device = config.device)<0.9).long()
@@ -274,7 +274,7 @@ class Hinter:
         
 
         assert len(set([len(self.hinter_runtime_list),len(self.pg_runningtime_list),len(self.mcts_time_list),len(self.hinter_planningtime_list),len(self.MHPE_time_list),len(self.hinter_runtime_list),len(self.chosen_plan),len(self.hinter_time_list)]))==1
-        return self.pg_planningtime_list[-1],self.pg_runningtime_list[-1],self.mcts_time_list[-1],self.hinter_planningtime_list[-1],self.MHPE_time_list[-1],self.hinter_runtime_list[-1],self.chosen_plan[-1],self.hinter_time_list[-1]
+        return self.pg_planningtime_list[-1],self.pg_runningtime_list[-1],self.mcts_time_list[-1],self.hinter_planningtime_list[-1],self.MHPE_time_list[-1],self.hinter_runtime_list[-1],self.chosen_plan[-1],self.hinter_time_list[-1],self.samples_plan_with_time[-1][0]
 
     def predictWithUncertaintyBatch(self,plan_jsons,sql_vec):
         sql_feature = self.model.value_network.sql_feature(sql_vec)

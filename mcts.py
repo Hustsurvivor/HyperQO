@@ -17,9 +17,9 @@ for name, param in predictionNet.named_parameters():
     from torch.nn import init
     # print(name,param.shape)
     if len(param.shape)==2:
-        init.xavier_normal(param)
+        torch.nn.init.xavier_normal_(param)
     else:
-        init.uniform(param)
+        torch.nn.init.uniform_(param)
 # predictionNet = ValueNet(856, 5)
 # predictionNet.load_state_dict(torch.load(model_path, map_location=lambda storage, loc: storage))
 # predictionNet.eval()
@@ -99,7 +99,7 @@ class planState:
         self.currentStep = 0
         self.numberOfTables = numberOfTables
         self.queryEncode = queryEncode
-        self.order_list = np.zeros(config.max_hint_num,dtype = np.int)
+        self.order_list = np.zeros(config.max_hint_num,dtype = np.int32)
         self.joins = []
         self.joins_with_predicate = []
         # print("all_joins",len(all_joins))
@@ -364,7 +364,7 @@ class MCTSHinterSearch():
         return benefit_top_hints[:config.try_hint_num]
     def loss(self,input,target,optimize = True):
         # print(input,target)
-        loss_value = loss_function(input=input, target=target)
+        loss_value = loss_function(input=input.squeeze(1), target=target)
         if not optimize:
             return loss_value.item()
         optimizer.zero_grad()

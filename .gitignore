@@ -1,2 +1,7 @@
+.vscode 
+__pycache__
+
 data/
 model
+latency_record.txt
+log.txt
